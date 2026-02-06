@@ -1,4 +1,4 @@
-name: Build and publish API Docker image (multi-arch)
+name: Build and publish Service Docker image (multi-arch)
 
 on:
   push:
@@ -6,7 +6,7 @@ on:
     tags: [ 'v*' ]
     paths:
       - 'src/**'
-      - '.github/workflows/main.yml'
+      - '.github/workflows/docker-service.yml'
       - 'Makefile'
   pull_request:
     branches: [ main ]
@@ -56,18 +56,19 @@ jobs:
             type=sha
             type=raw,value=latest,enable={{is_default_branch}}
 
-      - name: Build and push (linux/amd64)
+      - name: Build and push (linux/arm64, linux/amd64)
         uses: docker/build-push-action@v6
         with:
           context: ./src
-          file: ./src/Api/Dockerfile
-          platforms: linux/amd64
+          file: ./src/Dockerfile
+          platforms: linux/arm64,linux/amd64
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      
       # - name: Notify Portainer webhook
       #   if: github.event_name != 'pull_request'
       #   run: |
