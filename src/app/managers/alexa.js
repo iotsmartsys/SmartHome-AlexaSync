@@ -23,6 +23,8 @@ function getAlexaValueCapability(capability, value) {
             return String(value || '').toLowerCase() === 'open' ? 'DETECTED' : 'NOT_DETECTED';
         case 'press_count':
             return value === 'pressed_x1' ? 'pressed' : null;
+        case 'pressed':
+            return String(value || '').toLowerCase() === 'pressed' ? 'PRESSED' : null;
         default:
             logger.warn('Unknown capability value_type:', capability.value_type);
             return null;
@@ -32,12 +34,18 @@ function getAlexaValueCapability(capability, value) {
 function buildAlexaState(capability, alexaValue) {
     const deviceType = capability?.smart_home?.Alexa?.deviceType ? String(capability.smart_home.Alexa.deviceType).trim().toUpperCase() : '';
 
-    if (deviceType === 'CONTACT_SENSOR') {
-        return { detectionState: alexaValue };
+    switch (deviceType) {
+        case 'MOTION_SENSOR':
+            return { detectionState: alexaValue };
+        case 'DOORBELL_EVENT_SOURCE':
+            return { eventDetectionState: alexaValue };
+        case 'CONTACT_SENSOR':
+            return { detectionState: alexaValue };
+        default:
+            return { powerState: alexaValue };
     }
 
     // Default: PowerController devices
-    return { powerState: alexaValue };
 }
 
 async function reportAlexaValueChange(device_id, capability_name, alexaValue, capability) {
