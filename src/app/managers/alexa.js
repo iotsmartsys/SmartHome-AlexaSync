@@ -15,9 +15,12 @@ function getAlexaValueCapability(capability, value) {
     logger.info('getValueCapability - Capability value:', capability.value);
     switch (capability.value_type) {
         case 'power':
-            return value === 'on' || capability.value === 'true' ? 'ON' : 'OFF';
+            return String(value || '').toLowerCase() === 'on' || String(value || '').toLowerCase() === 'true' ? 'ON' : 'OFF';
         case 'detection':
-            return value === 'detected' ? 'detected' : 'notDetected';
+            return String(value || '').toLowerCase() === 'detected' ? 'DETECTED' : 'NOT_DETECTED';
+        case 'open_closed':
+            // Convention: open => DETECTED, closed => NOT_DETECTED
+            return String(value || '').toLowerCase() === 'open' ? 'DETECTED' : 'NOT_DETECTED';
         case 'press_count':
             return value === 'pressed_x1' ? 'pressed' : null;
         default:
@@ -26,14 +29,27 @@ function getAlexaValueCapability(capability, value) {
     }
 }
 
-async function reportAlexaValueChange(device_id, capability_name, alexaValue) {
+function buildAlexaState(capability, alexaValue) {
+    const deviceType = capability?.smart_home?.Alexa?.deviceType ? String(capability.smart_home.Alexa.deviceType).trim().toUpperCase() : '';
+
+    if (deviceType === 'CONTACT_SENSOR') {
+        return { detectionState: alexaValue };
+    }
+
+    // Default: PowerController devices
+    return { powerState: alexaValue };
+}
+
+async function reportAlexaValueChange(device_id, capability_name, alexaValue, capability) {
     try {
         const payload = {
             device_id: device_id,
             capability_name: capability_name,
-            state: { powerState: alexaValue },
+            alexa_device_type: capability?.smart_home?.Alexa?.deviceType,
+            state: buildAlexaState(capability, alexaValue),
             ts: Date.now()
         };
+        console.log(payload);
         logger.info('Reporting Alexa value change with payload:', payload);
         const response = await http.post('alexa/report', payload);
         logger.info('Alexa value change reported successfully:', response.data);
@@ -50,5 +66,6 @@ function isAlexa(capability) {
 module.exports = {
     getAlexaValueCapability,
     reportAlexaValueChange,
-    isAlexa
+    isAlexa,
+    buildAlexaState,
 };
