@@ -27,13 +27,13 @@ function registerHandlers(client) {
 
 
   client.on('message', (topic, message) => {
-    const id = correlation.generateId();
+    const id = message.capability_name;//correlation.generateId();
 
     correlation.runWithId(id, async () => {
       try {
         await handleMessage(client, topic, message);
       } catch (err) {
-        logger.error('Erro no processamento da mensagem:', err);
+        logger.error(`Erro no processamento da mensagem: ${err}`);
       }
     });
   });
@@ -69,18 +69,22 @@ async function handleCapabilityMessage(client, message) {
     }
 
     const capability = await getCapabilityByName(payload.capability_name);
-    if (!isAlexa(capability)) {
-      logger.warn(
-        { capability_name: payload.capability_name },
-        'Capability não pertencece ao Alexa Smart Home'
-      );
+    if (!capability) {
+      logger.warn(`Capability não encontrada para o nome fornecido: ${payload.capability_name}`);
       return;
     }
 
+    logger.info(`Validando Alexa para a capability: ${payload.capability_name}`);
+    if (!isAlexa(capability)) {
+      logger.warn(`Capability não pertencece ao Alexa Smart Home: ${payload.capability_name}`);
+      return;
+    }
+
+    logger.info(`Reportando mudança de valor para Alexa: ${payload.capability_name} = ${payload.value}`);
     await reportAlexaValueChange(capability, payload.value);
 
   } catch (err) {
-    logger.error({ message: err.message }, 'Erro ao processar mensagem MQTT');
+    logger.error(`Erro ao processar mensagem MQTT: ${err}`);
   }
 }
 

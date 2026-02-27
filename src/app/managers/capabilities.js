@@ -3,38 +3,44 @@ const logger = require('../utils/logger');
 
 const capabilityCache = new Map();
 
-async function getCapability(payload) {
-  try {
-    logger.info('Getting capability:', payload.capability_name);
-    const capabilityName = payload.capability_name;
-    const cached = getCapabilityFromCache(capabilityName);
-    if (cached && cached.value_type && Array.isArray(cached.platforms)) {
-      logger.info('Capability encontrada no cache:', cached);
-      return cached;
-    }
-    const response = await http.get(`capabilities/${capabilityName}`);
-    logger.info('Capability response:', response.data);
-    return addCapabilityToCache(capabilityName, response.data);
-  } catch (error) {
-    logger.error('Error getting capability:', error.message);
-    return null;
-  }
-}
-
 async function getCapabilityByName(capability_name) {
   try {
     const cached = getCapabilityFromCache(capability_name);
     if (cached) {
-      logger.info('Capability referenceId encontrada no cache:', cached);
+      logger.info(`Capability referenceId encontrada no cache: ${JSON.stringify(cached)}`);
       return cached;
     }
 
     logger.info('Getting capability:', capability_name);
-    const response = await http.get(`capabilities/${capability_name}`);
-    logger.info('Capability response:', response.data);
-    return addCapabilityToCache(capability_name, response.data);
+    const response = await http.get(`smart-home/Alexa/capabilities/?group_name=Alexa&name=${capability_name}`);
+    if (response.status !== 200) {
+      logger.warn(`Capability API returned non-200 status: ${response.status} for name: ${capability_name}`);
+      return null;
+    }
+    let capability = response.data;
+    logger.info(`Capability response: ${JSON.stringify(capability)}`);
+
+    // API may return an array of capabilities — use the first item when present
+    if (Array.isArray(capability)) {
+      if (capability.length === 0) {
+        logger.warn(`Capability array is empty for name: ${capability_name}`);
+        return null;
+      }
+      capability = capability[0];
+    }
+
+    // API may return an empty string for no-result — normalize to null
+    if (typeof capability === 'string' && capability.trim() === '') {
+      logger.warn(`Capability is null or undefined for name: ${capability_name}`);
+      return null;
+    }
+
+    return addCapabilityToCache(capability_name, capability);
   } catch (error) {
-    logger.error('Error getting capability:', error.message);
+    logger.error(`Error getting capability: ${error}`);
+    if (error.response && error.response.status === 404) {
+      logger.warn(`Capability ${capability_name} not found in API`);
+    }
     return null;
   }
 }
@@ -45,9 +51,11 @@ function getCapabilityFromCache(capability_name) {
 
 function addCapabilityToCache(capability_name, capability) {
   if (!capability) {
+    logger.warn(`Capability is null or undefined for name: ${capability_name}`);
     return null;
   }
   const cached = {
+    uid: capability.uid,
     capability_name: capability.capability_name,
     device_id: capability.device_id,
     owner: capability.owner,
@@ -55,6 +63,7 @@ function addCapabilityToCache(capability_name, capability) {
     value_type: capability.value_type,
   };
 
+  logger.info(`Adding capability to cache: ${JSON.stringify(cached)}`);
   capabilityCache.set(capability_name, cached);
   return cached;
 }
@@ -78,7 +87,6 @@ function isCapability(payload) {
 }
 
 module.exports = {
-  getCapability,
   getCapabilityByName,
   isCapability,
 };
