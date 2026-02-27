@@ -12,7 +12,7 @@ const http = axios.create({
 });
 
 function getAlexaValueCapability(capability, value) {
-    logger.info('getValueCapability - Capability value:', capability.value);
+    logger.info('getValueCapability - Capability value:', value);
     switch (capability.value_type) {
         case 'power':
             return String(value || '').toLowerCase() === 'on' || String(value || '').toLowerCase() === 'true' ? 'ON' : 'OFF';
@@ -31,33 +31,29 @@ function getAlexaValueCapability(capability, value) {
     }
 }
 
-function buildAlexaState(capability, alexaValue) {
-    const deviceType = capability?.smart_home?.Alexa?.deviceType ? String(capability.smart_home.Alexa.deviceType).trim().toUpperCase() : '';
+function buildAlexaState(capability, newValue) {
+    const deviceType = capability.smart_home.Alexa.deviceType;
 
     switch (deviceType) {
         case 'MOTION_SENSOR':
-            return { detectionState: alexaValue };
+            return { detectionState: getAlexaValueCapability(capability, newValue) };
         case 'DOORBELL_EVENT_SOURCE':
-            return { eventDetectionState: alexaValue };
+            return { eventDetectionState: getAlexaValueCapability(capability, newValue) };
         case 'CONTACT_SENSOR':
-            return { detectionState: alexaValue };
+            return { detectionState: getAlexaValueCapability(capability, newValue) };
         default:
-            return { powerState: alexaValue };
+            return { powerState: getAlexaValueCapability(capability, newValue) };
     }
-
-    // Default: PowerController devices
 }
 
-async function reportAlexaValueChange(device_id, capability_name, alexaValue, capability) {
+async function reportAlexaValueChange(capability, newValue) {
     try {
         const payload = {
-            device_id: device_id,
-            capability_name: capability_name,
-            alexa_device_type: capability?.smart_home?.Alexa?.deviceType,
-            state: buildAlexaState(capability, alexaValue),
+            capability_uid: capability.capability_uid,
+            state: buildAlexaState(capability, newValue),
             ts: Date.now()
         };
-        console.log(payload);
+
         logger.info('Reporting Alexa value change with payload:', payload);
         const response = await http.post('alexa/report', payload);
         logger.info('Alexa value change reported successfully:', response.data);
@@ -69,7 +65,6 @@ async function reportAlexaValueChange(device_id, capability_name, alexaValue, ca
 function isAlexa(capability) {
     return capability && capability.smart_home.Alexa !== undefined;
 }
-
 
 module.exports = {
     getAlexaValueCapability,

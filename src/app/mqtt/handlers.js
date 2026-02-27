@@ -77,9 +77,7 @@ async function handleCapabilityMessage(client, message) {
       return;
     }
 
-    const newValue = payload.value;
-    const alexaValue = getAlexaValueCapability(capability, newValue);
-    await reportAlexaValueChange(capability.device_id, capability.capability_name, alexaValue, capability);
+    await reportAlexaValueChange(capability, payload.value);
 
   } catch (err) {
     logger.error({ message: err.message }, 'Erro ao processar mensagem MQTT');
