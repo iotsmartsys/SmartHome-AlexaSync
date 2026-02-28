@@ -47,16 +47,35 @@ function buildAlexaState(capability, newValue) {
     }
 }
 
-async function reportAlexaValueChange(capability, newValue) {
+async function reportAlexaValueChange(capability, payload) {
     try {
-        const payload = {
-            capability_uid: capability.uid,
-            state: buildAlexaState(capability, newValue),
-            ts: Date.now()
-        };
+        const action = payload.action || 'unknown';
+        var payloadAlexa = {};
+        switch (action) {
+            case 'addOrUpdate':
+                logger.info(`Reporting Alexa value change for capability: ${capability.capability_name} with new value: ${payload.value}`);
+                payloadAlexa = {
+                    capability_uid: capability.uid,
+                    add_or_update: true
+                };
+                break;
+            case 'remove':
+                logger.info(`Reporting Alexa capability removal for capability: ${capability.capability_name}`);
+                payloadAlexa = {
+                    capability_uid: capability.uid,
+                    delete: true
+                };
+                break;
+            default:
+                payloadAlexa = {
+                    capability_uid: capability.uid,
+                    state: buildAlexaState(capability, payload.value),
+                    ts: Date.now()
+                };
+        }
 
-        logger.info(`Reporting Alexa value change with payload: ${JSON.stringify(payload)}`);
-        const response = await http.post('', payload);
+        logger.info(`Reporting Alexa value change with payload: ${JSON.stringify(payloadAlexa)}`);
+        const response = await http.post('', payloadAlexa);
         logger.info(`Alexa value change reported successfully: ${JSON.stringify(response.data)}`);
     } catch (error) {
         logger.error(`Error reporting Alexa value change: ${error}`);

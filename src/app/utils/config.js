@@ -1,6 +1,7 @@
 
 const host_name_mqtt = process.env.MQTT_HOST;
 const mqtt_topic = process.env.MQTT_TOPIC || 'device/updated';
+const mqtt_topic_capability = process.env.MQTT_TOPIC_CAPABILITY || 'capability/updated';
 const mqtt_user_name = process.env.MQTT_USER_NAME;
 const mqtt_password = process.env.MQTT_PASSWORD;
 const mqtt_client_id = process.env.MQTT_CLIENT_ID || 'alexa_sync_local-client';
@@ -20,6 +21,7 @@ module.exports = {
     mqtt_protocol,
     api_url,
     mqtt_topic,
+    mqtt_topic_capability,
     mqtt_user_name,
     mqtt_password,
     mqtt_client_id,

@@ -1,8 +1,8 @@
 const {
   getCapabilityByName,
   isCapability } = require('../managers/capabilities');
-const { getAlexaValueCapability, reportAlexaValueChange, isAlexa } = require('../managers/alexa');
-const { mqtt_topic } = require('../utils/config');
+const { reportAlexaValueChange, isAlexa } = require('../managers/alexa');
+const { mqtt_topic, mqtt_topic_capability } = require('../utils/config');
 const { publish } = require('./publisher');
 const correlation = require('../utils/correlation');
 const logger = require('../utils/logger');
@@ -25,6 +25,13 @@ function registerHandlers(client) {
     }
   });
 
+  client.subscribe(mqtt_topic_capability, (err) => {
+    if (err) {
+      logger.error({ topic: mqtt_topic_capability, message: err.message }, 'Erro ao subscrever ao tópico');
+    } else {
+      logger.info({ topic: mqtt_topic_capability }, 'Subscrito ao tópico');
+    }
+  });
 
   client.on('message', (topic, message) => {
     const id = message.capability_name;//correlation.generateId();
@@ -42,6 +49,7 @@ function registerHandlers(client) {
 async function handleMessage(client, topic, message) {
   switch (topic) {
     case mqtt_topic:
+    case mqtt_topic_capability:
       logger.info(
         { topic, message: summarizeMessage(message) },
         'Mensagem recebida no tópico principal'
@@ -81,7 +89,7 @@ async function handleCapabilityMessage(client, message) {
     }
 
     logger.info(`Reportando mudança de valor para Alexa: ${payload.capability_name} = ${payload.value}`);
-    await reportAlexaValueChange(capability, payload.value);
+    await reportAlexaValueChange(capability, payload);
 
   } catch (err) {
     logger.error(`Erro ao processar mensagem MQTT: ${err}`);
