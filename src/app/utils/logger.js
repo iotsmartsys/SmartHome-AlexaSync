@@ -1,10 +1,12 @@
 const pino = require('pino');
 const correlation = require('./correlation');
 
-const log_level = process.env.LOG_LEVEL || 'info';
 const service_name = process.env.MQTT_CLIENT_ID || 'smart-home-database-sync';
-const env = process.env.NODE_ENV || process.env.ENV || 'prod';
+const env = process.env.NODE_ENV || process.env.ENV || 'development';
 const usePretty = env !== 'production';
+// por padrão, em ambientes de desenvolvimento queremos ver logs em nível debug
+const defaultLogLevel = usePretty ? 'debug' : 'info';
+const log_level = process.env.LOG_LEVEL || defaultLogLevel;
 
 let baseLogger;
 if (usePretty) {
@@ -14,6 +16,7 @@ if (usePretty) {
     options: {
       colorize: true,
       translateTime: 'yyyy-mm-dd HH:MM:ss.l',
+      levelFirst: true,
       ignore: 'pid,hostname'
     }
   });
@@ -24,7 +27,8 @@ if (usePretty) {
     messageKey: 'message',
     formatters: {
       level(label) {
-        return { level: label };
+        // mostra o nível em maiúsculas para maior destaque nos logs
+        return { level: String(label).toUpperCase() };
       }
     }
   }, transport);

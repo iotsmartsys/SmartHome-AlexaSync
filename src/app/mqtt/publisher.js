@@ -4,9 +4,9 @@ const logger = require('../utils/logger');
 function publish(client, topic, payload) {
   client.publish(topic, JSON.stringify(payload), (err) => {
     if (err) {
-      logger.error(`Erro ao publicar no tópico ${topic}:`, err.message);
+      logger.error({ err, topic }, `Erro ao publicar no tópico ${topic}`);
     } else {
-      logger.info(`Mensagem publicada no tópico ${topic}`);
+      logger.info({ topic }, `Mensagem publicada no tópico ${topic}`);
     }
   });
 }

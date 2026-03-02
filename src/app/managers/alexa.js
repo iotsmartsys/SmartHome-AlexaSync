@@ -12,7 +12,7 @@ const http = axios.create({
 });
 
 function getAlexaValueCapability(capability, value) {
-    logger.info('getValueCapability - Capability value:', value);
+    logger.info({ value }, 'getValueCapability - Capability value');
     switch (capability.value_type) {
         case 'power':
             return String(value || '').toLowerCase() === 'on' || String(value || '').toLowerCase() === 'true' ? 'ON' : 'OFF';
@@ -26,7 +26,7 @@ function getAlexaValueCapability(capability, value) {
         case 'pressed':
             return String(value || '').toLowerCase() === 'pressed' ? 'PRESSED' : null;
         default:
-            logger.warn('Unknown capability value_type:', capability.value_type);
+            logger.warn({ value_type: capability.value_type }, 'Unknown capability value_type');
             return null;
     }
 }
@@ -47,38 +47,49 @@ function buildAlexaState(capability, newValue) {
     }
 }
 
+async function reportAlexaCapabilityRemoval(uid) {
+    try {
+        logger.info(`Reporting Alexa capability removal for capability UID: ${uid}`);
+        const payloadAlexa = {
+            capability_uid: uid,
+            delete: true
+        };
+        logger.info(`Reporting Alexa capability removal with payload: ${JSON.stringify(payloadAlexa)}`);
+        const response = await http.post('', payloadAlexa);
+        logger.info(`Alexa capability removal reported successfully: ${JSON.stringify(response.data)}`);
+    } catch (error) {
+        logger.error({ err: error }, 'Error reporting Alexa capability removal');
+    }
+}
+
+async function reportAlexaCapabilityAddOrUpdate(capability) {
+    try {
+        logger.info(`Reporting Alexa capability add/update for capability: ${capability.capability_name}`);
+        const payloadAlexa = {
+            capability_uid: capability.uid,
+            add_or_update: true
+        };
+        logger.info(`Reporting Alexa capability add/update with payload: ${JSON.stringify(payloadAlexa)}`);
+        const response = await http.post('', payloadAlexa);
+        logger.info(`Alexa capability add/update reported successfully: ${JSON.stringify(response.data)}`);
+    } catch (error) {
+        logger.error({ err: error }, 'Error reporting Alexa capability add/update');
+    }
+}
+
 async function reportAlexaValueChange(capability, payload) {
     try {
-        const action = payload.action || 'unknown';
-        var payloadAlexa = {};
-        switch (action) {
-            case 'addOrUpdate':
-                logger.info(`Reporting Alexa value change for capability: ${capability.capability_name} with new value: ${payload.value}`);
-                payloadAlexa = {
-                    capability_uid: capability.uid,
-                    add_or_update: true
-                };
-                break;
-            case 'remove':
-                logger.info(`Reporting Alexa capability removal for capability: ${capability.capability_name}`);
-                payloadAlexa = {
-                    capability_uid: capability.uid,
-                    delete: true
-                };
-                break;
-            default:
-                payloadAlexa = {
-                    capability_uid: capability.uid,
-                    state: buildAlexaState(capability, payload.value),
-                    ts: Date.now()
-                };
-        }
+        payloadAlexa = {
+            capability_uid: capability.uid,
+            state: buildAlexaState(capability, payload.value),
+            ts: Date.now()
+        };
 
         logger.info(`Reporting Alexa value change with payload: ${JSON.stringify(payloadAlexa)}`);
         const response = await http.post('', payloadAlexa);
         logger.info(`Alexa value change reported successfully: ${JSON.stringify(response.data)}`);
     } catch (error) {
-        logger.error(`Error reporting Alexa value change: ${error}`);
+        logger.error({ err: error }, 'Error reporting Alexa value change');
     }
 }
 
@@ -88,8 +99,8 @@ function isAlexa(capability) {
 }
 
 module.exports = {
-    getAlexaValueCapability,
     reportAlexaValueChange,
     isAlexa,
-    buildAlexaState,
+    reportAlexaCapabilityAddOrUpdate,
+    reportAlexaCapabilityRemoval,
 };

@@ -1,98 +1,61 @@
-const {
-  getCapabilityByName,
-  isCapability } = require('../managers/capabilities');
-const { reportAlexaValueChange, isAlexa } = require('../managers/alexa');
-const { mqtt_topic, mqtt_topic_capability } = require('../utils/config');
-const { publish } = require('./publisher');
+const { mqtt_topic, mqtt_topic_capability_updated, mqtt_topic_capability_removed } = require('../utils/config');
 const correlation = require('../utils/correlation');
 const logger = require('../utils/logger');
+const handleCapabilityState = require('./handlers_capability_state');
+const handleCapabilityUpdated = require('./handlers_capability_updated');
+const { handleCapabilityRemoved } = require('./handlers_capability_removed');
 
 function summarizeMessage(message) {
   const raw = message.toString();
   return {
+    payload_: raw,
     length: raw.length,
     preview: raw.slice(0, 300),
   };
 }
 
 function registerHandlers(client) {
-  // Subscriptions
-  client.subscribe(mqtt_topic, (err) => {
-    if (err) {
-      logger.error({ topic: mqtt_topic, message: err.message }, 'Erro ao subscrever ao tópico');
-    } else {
-      logger.info({ topic: mqtt_topic }, 'Subscrito ao tópico');
-    }
-  });
-
-  client.subscribe(mqtt_topic_capability, (err) => {
-    if (err) {
-      logger.error({ topic: mqtt_topic_capability, message: err.message }, 'Erro ao subscrever ao tópico');
-    } else {
-      logger.info({ topic: mqtt_topic_capability }, 'Subscrito ao tópico');
-    }
-  });
+  for (const topic of [mqtt_topic, mqtt_topic_capability_updated, mqtt_topic_capability_removed]) {
+    client.subscribe(topic, (err) => {
+      if (err) {
+        logger.error({ topic, message: err.message }, 'Erro ao subscrever ao tópico');
+      } else {
+        logger.info({ topic }, 'Subscrito ao tópico');
+      }
+    });
+  }
 
   client.on('message', (topic, message) => {
-    const id = message.capability_name;//correlation.generateId();
+    const id = message.capability_name;
 
     correlation.runWithId(id, async () => {
       try {
         await handleMessage(client, topic, message);
       } catch (err) {
-        logger.error(`Erro no processamento da mensagem: ${err}`);
+        logger.error({ err }, 'Erro no processamento da mensagem');
       }
     });
   });
 }
 
 async function handleMessage(client, topic, message) {
+
   switch (topic) {
     case mqtt_topic:
-    case mqtt_topic_capability:
-      logger.info(
-        { topic, message: summarizeMessage(message) },
-        'Mensagem recebida no tópico principal'
-      );
-      await handleCapabilityMessage(client, message);
+      logger.info({ topic, message: summarizeMessage(message) }, 'Mensagem recebida no tópico principal');
+      await handleCapabilityState(client, message);
+      break;
+    case mqtt_topic_capability_updated:
+      logger.info({ topic, message: summarizeMessage(message) }, 'Mensagem recebida no tópico de capacidade atualizada');
+      await handleCapabilityUpdated(client, message);
+      break;
+    case mqtt_topic_capability_removed:
+      logger.info({ topic, message: summarizeMessage(message) }, 'Mensagem recebida no tópico de capacidade removida');
+      await handleCapabilityRemoved(client, message);
       break;
     default:
       logger.warn({ topic }, 'Mensagem recebida em tópico desconhecido');
-      return;
-  }
-}
-
-async function handleCapabilityMessage(client, message) {
-  try {
-    6
-    const payload = JSON.parse(message.toString());
-    logger.debug(
-      { device_id: payload.device_id, capabilityName: payload.capability_name, value: payload.value },
-      'Payload de capability parseado'
-    );
-
-    if (!isCapability(payload)) {
-      logger.debug("Nome de capability inválido");
-      return;
-    }
-
-    const capability = await getCapabilityByName(payload.capability_name);
-    if (!capability) {
-      logger.warn(`Capability não encontrada para o nome fornecido: ${payload.capability_name}`);
-      return;
-    }
-
-    logger.info(`Validando Alexa para a capability: ${payload.capability_name}`);
-    if (!isAlexa(capability)) {
-      logger.warn(`Capability não pertencece ao Alexa Smart Home: ${payload.capability_name}`);
-      return;
-    }
-
-    logger.info(`Reportando mudança de valor para Alexa: ${payload.capability_name} = ${payload.value}`);
-    await reportAlexaValueChange(capability, payload);
-
-  } catch (err) {
-    logger.error(`Erro ao processar mensagem MQTT: ${err}`);
+      break;
   }
 }
 

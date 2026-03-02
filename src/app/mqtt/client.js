@@ -19,14 +19,14 @@ function createClient() {
     clientId: mqtt_client_id,
     rejectUnauthorized: mqtt_protocol === "mqtts" // valida o certificado do servidor
   };
-  logger.info("Configurações MQTT:", options);
+  logger.info({ mqtt_options: options }, 'Configurações MQTT');
   const client = mqtt.connect(options);
 
   client.on('connect', () => {
     logger.info('Conectado ao MQTT com autenticação');
   });
   client.on('error', (err) => {
-    logger.error('Erro no cliente MQTT:', err);
+    logger.error({ err }, 'Erro no cliente MQTT');
   });
   client.on('offline', () => {
     logger.info('Cliente MQTT está offline');
