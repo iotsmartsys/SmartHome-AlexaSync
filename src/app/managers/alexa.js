@@ -22,11 +22,38 @@ function getAlexaValueCapability(capability, value) {
             // Convention: open => DETECTED, closed => NOT_DETECTED
             return String(value || '').toLowerCase() === 'open' ? 'DETECTED' : 'NOT_DETECTED';
         case 'press_count':
-            return value === 'pressed_x1' ? 'pressed' : null;
+            return value;
         case 'pressed':
             return String(value || '').toLowerCase() === 'pressed' ? 'PRESSED' : null;
         default:
             logger.warn({ value_type: capability.value_type }, 'Unknown capability value_type');
+            return null;
+    }
+}
+
+/*
+{
+  "capability_uid": "e1050702-b686-48fc-b409-a03483c697ed",
+  "state": {
+    "instance": "e1050702-b686-48fc-b409-a03483c697ed",
+    "eventId": "Button.SinglePush.1"
+  },
+  "ts": "2026-03-05T20:30:00.000Z"
+}
+*/
+
+function getAlexaEventIdByValueCapability(capability, value) {
+    logger.info({ value }, 'getAlexaEventIdByValueCapability - Capability value');
+
+    switch(value) {
+        case 'pressed_x1':
+            return 'Button.SinglePush.1';
+        case 'pressed_x2':
+            return 'Button.DoublePress.1';
+        case 'long_press':
+            return 'Button.LongPress.1';
+        default:
+            logger.warn({ value }, 'Unknown event value for remote capability');
             return null;
     }
 }
@@ -38,10 +65,12 @@ function buildAlexaState(capability, newValue) {
     switch (deviceType) {
         case 'MOTION_SENSOR':
             return { detectionState: getAlexaValueCapability(capability, newValue) };
-        case 'DOORBELL_EVENT_SOURCE':
+        case 'DOORBELL':
             return { eventDetectionState: getAlexaValueCapability(capability, newValue) };
         case 'CONTACT_SENSOR':
             return { detectionState: getAlexaValueCapability(capability, newValue) };
+        case 'REMOTE':
+            return { instance: capability.uid, eventId: getAlexaEventIdByValueCapability(capability, newValue) };
         default:
             return { powerState: getAlexaValueCapability(capability, newValue) };
     }
